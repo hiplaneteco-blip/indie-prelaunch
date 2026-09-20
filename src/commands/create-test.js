@@ -1,4 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
+import { getOrCreateUser } from '../db/users.js';
+import { createMission } from '../db/missions.js';
 
 export const data = new SlashCommandBuilder()
   .setName('create-test')
@@ -36,8 +38,37 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  await interaction.reply({
-    content: 'create-test: coming online in the next build step (missions table).',
-    ephemeral: true,
+  const gameName = interaction.options.getString('game_name', true);
+  const minMinutes = interaction.options.getInteger('min_minutes', true);
+  const slotsTotal = interaction.options.getInteger('slots_total', true);
+  const rewardCredits = interaction.options.getInteger('reward_credits', true);
+  const creditCost = interaction.options.getInteger('credit_cost') ?? 0;
+
+  await getOrCreateUser(interaction.user.id, interaction.user.username);
+
+  // Role gating starts loose (see README): tag the caller's roles on the
+  // mission instead of blocking non-developers from calling this at all.
+  const ownerRoles = interaction.member?.roles?.cache
+    ? [...interaction.member.roles.cache.values()].map((r) => r.name)
+    : [];
+
+  const mission = await createMission({
+    gameName,
+    ownerId: interaction.user.id,
+    minMinutes,
+    slotsTotal,
+    rewardCredits,
+    creditCost,
+    ownerRoles,
   });
+
+  await interaction.reply(
+    [
+      `**Mission #${mission.mission_id} created: ${mission.game_name}**`,
+      `Posted by <@${mission.owner_id}>`,
+      `Needs ${mission.slots_total} tester(s), min ${mission.min_minutes} min each.`,
+      `Reward: ${mission.reward_credits} credits on completed feedback.`,
+      `Run \`/join mission_id:${mission.mission_id}\` to sign up.`,
+    ].join('\n')
+  );
 }
