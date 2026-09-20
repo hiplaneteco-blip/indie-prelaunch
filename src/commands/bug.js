@@ -1,4 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
+import { getMissionById } from '../db/missions.js';
+import { findParticipation } from '../db/participations.js';
+import { insertBug } from '../db/bugs.js';
 
 export const data = new SlashCommandBuilder()
   .setName('bug')
@@ -23,8 +26,29 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  const missionId = interaction.options.getInteger('mission_id', true);
+  const description = interaction.options.getString('description', true);
+  const severity = interaction.options.getString('severity', true);
+
+  const mission = await getMissionById(missionId);
+  if (!mission) {
+    await interaction.reply({ content: `No mission #${missionId}.`, ephemeral: true });
+    return;
+  }
+
+  const participation = await findParticipation(missionId, interaction.user.id);
+  if (!participation) {
+    await interaction.reply({
+      content: `You haven't joined mission #${missionId} — run \`/join\` first.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await insertBug({ participationId: participation.participation_id, description, severity });
+
   await interaction.reply({
-    content: 'bug: coming online once the credit system is wired up.',
+    content: `Bug logged for **#${missionId} ${mission.game_name}** (${severity}). Thanks!`,
     ephemeral: true,
   });
 }
