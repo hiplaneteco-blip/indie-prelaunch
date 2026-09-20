@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from 'discord.js';
 import { getOrCreateUser } from '../db/users.js';
 import { getMissionById, fillSlot } from '../db/missions.js';
 import { joinMission, DUPLICATE_JOIN } from '../db/participations.js';
+import { postMissionSummaryIfFull } from '../services/mission-summary.js';
 
 export const data = new SlashCommandBuilder()
   .setName('join')
@@ -48,4 +49,6 @@ export async function execute(interaction) {
       `(${updated.slots_filled}/${updated.slots_total} slots filled). ` +
       `Submit \`/feedback\` when done to earn ${mission.reward_credits} credits.`
   );
+
+  await postMissionSummaryIfFull(updated, interaction.channel);
 }
