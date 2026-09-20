@@ -41,20 +41,57 @@ npm start
 
 ## Build status
 
-This is being built and tested incrementally against the live Indie Prelaunch
-server, one step at a time:
+Built incrementally, each step verified before moving to the next (steps 1-4
+against a real local Postgres instance driving the actual command code;
+step 4's outbound Claude call itself still needs a real API key to verify
+against live output — everything around it, including the failure-fallback
+path, is verified):
 
 1. **Skeleton** (done) — bot connects, all 7 commands are registered and
-   respond, no database yet. Every command currently replies with a
-   placeholder saying which later step wires it up.
-2. **Missions + join** — `MISSIONS` / `PARTICIPATIONS` tables, `/create-test`,
-   `/missions`, `/join`.
-3. **Feedback + credit** — `FEEDBACK` / `BUGS` / `CREDIT_TX` tables,
+   respond, no database yet.
+2. **Missions + join** (done) — `MISSIONS` / `PARTICIPATIONS` tables,
+   `/create-test`, `/missions`, `/join`.
+3. **Feedback + credit** (done) — `FEEDBACK` / `BUGS` / `CREDIT_TX` tables,
    `/feedback`, `/bug`, `/credits`, `/profile`, unique-join constraint,
    credit-on-feedback logic.
-4. **AI summary** — Claude API call fires when a mission's `slots_filled`
-   reaches `slots_total`; posts a Combat/UI/Difficulty summary to the channel.
-5. **Deploy** — move off a local machine onto Railway/Render.
+4. **AI summary** (done, needs a real `ANTHROPIC_API_KEY` to fully verify) —
+   Claude API call fires when a mission's `slots_filled` reaches
+   `slots_total`; posts a Combat/UI/Difficulty summary to the channel. Note:
+   this fires on the join that fills the last slot, not on every tester
+   having submitted `/feedback` — see the comment in
+   `src/services/mission-summary.js`.
+5. **Deploy** (done) — `Procfile` / `railway.json` for Railway,
+   `render.yaml` for Render. See below.
+
+### Still needs from you before this runs live
+
+- A Discord bot application (token + client ID) invited to the Indie
+  Prelaunch server with the `applications.commands` and `bot` scopes.
+- A Postgres database (e.g. Supabase) — run `npm run migrate` once against it.
+- An Anthropic API key for step 4.
+
+None of these exist in this build environment, so steps 1-4 were verified
+against a local, disposable Postgres instance and mocked Discord/Claude
+interactions rather than the live server — worth a real end-to-end smoke test
+in the actual channel once secrets are in place.
+
+## Deploying
+
+**Railway**: connect the repo, it picks up `railway.json` (Nixpacks build,
+`npm start`). Set `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`,
+`ANTHROPIC_API_KEY` in the service's Variables tab, then run
+`railway run npm run migrate` once against the deployed `DATABASE_URL` before
+(or right after) the first deploy.
+
+**Render**: connect the repo, it picks up `render.yaml` (background worker,
+runs `npm run migrate` as a pre-deploy command on every deploy — safe to
+repeat since the schema is all `CREATE ... IF NOT EXISTS`). Fill in the four
+env vars as secrets in the dashboard (`sync: false` in `render.yaml` means
+Render won't ask you to commit them).
+
+Either way, once deployed run `npm run deploy-commands` once (locally, with
+the deployed `.env` values) to register the slash commands with Discord —
+that's a one-time registration call, not part of the running process.
 
 ## Data model
 

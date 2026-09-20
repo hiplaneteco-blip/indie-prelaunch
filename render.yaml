@@ -1,0 +1,20 @@
+services:
+  - type: worker
+    name: indie-prelaunch-bot
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    # Run once after each deploy so schema changes land before the bot
+    # restarts. schema.sql is all CREATE ... IF NOT EXISTS, so re-running it
+    # on a deploy where nothing changed is a no-op.
+    preDeployCommand: npm run migrate
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
